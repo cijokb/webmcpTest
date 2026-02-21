@@ -16,10 +16,15 @@ export interface Order {
     discountApplied?: boolean;
     carrier?: string;
     trackingNumber?: string;
+    eta?: string;
+    weatherFlag?: boolean;
+    proofOfDelivery?: 'pending' | 'approved' | 'rejected';
+    cogs?: number;
+    margin?: number;
     events: {
         id: string;
         timestamp: string;
-        type: 'status_change' | 'note' | 'tracking' | 'refund' | 'discount' | 'creation';
+        type: 'status_change' | 'note' | 'tracking' | 'refund' | 'discount' | 'creation' | 'eta_update' | 'weather_alert' | 'pod_review' | 'split' | 'margin_calc';
         message: string;
         userType: 'agent' | 'human';
     }[];
@@ -38,7 +43,13 @@ interface OrderContextType {
     applyDiscount: (orderId: string, percentage: number, isAgent?: boolean) => void;
     createOrder: (order: Omit<Order, 'status' | 'date' | 'events'>, isAgent?: boolean) => void;
     updateOrderStatus: (orderId: string, status: Order['status'], isAgent?: boolean) => void;
+    bulkUpdateStatus: (currentStatus: Order['status'], newStatus: Order['status'], isAgent?: boolean) => void;
     addTrackingInfo: (orderId: string, carrier: string, trackingNumber: string, isAgent?: boolean) => void;
+    updateETA: (orderId: string, eta: string, isAgent?: boolean) => void;
+    flagWeatherException: (orderId: string, isDelayed: boolean, isAgent?: boolean) => void;
+    reviewProofOfDelivery: (orderId: string, reviewStatus: 'approved' | 'rejected', isAgent?: boolean) => void;
+    splitOrder: (originalOrderId: string, newOrderId: string, isAgent?: boolean) => void;
+    calculateMargins: (orderId: string, cogs: number, isAgent?: boolean) => void;
     log: { id: string, message: string }[];
 }
 
@@ -54,6 +65,11 @@ const INITIAL_ORDERS: Order[] = [
         shippingAddress: { street: '123 Main St', city: 'San Francisco', zip: '94105' },
         notes: ['Customer requested discreet packaging'],
         discountApplied: false,
+        eta: '2024-03-20',
+        weatherFlag: false,
+        proofOfDelivery: 'pending',
+        cogs: 80.00,
+        margin: 36.25,
         events: [
             { id: 'ev-1', timestamp: '2024-03-15T10:00:00Z', type: 'creation', message: 'Order created', userType: 'human' },
             { id: 'ev-2', timestamp: '2024-03-15T10:05:00Z', type: 'note', message: 'Added note: Customer requested discreet packaging', userType: 'human' }
@@ -70,10 +86,16 @@ const INITIAL_ORDERS: Order[] = [
         discountApplied: true,
         carrier: 'FedEx',
         trackingNumber: '7890123456',
+        eta: '2024-03-19',
+        weatherFlag: true,
+        proofOfDelivery: 'pending',
+        cogs: 60.00,
+        margin: 33.32,
         events: [
             { id: 'ev-3', timestamp: '2024-03-16T09:00:00Z', type: 'creation', message: 'Order created', userType: 'human' },
             { id: 'ev-4', timestamp: '2024-03-16T14:30:00Z', type: 'status_change', message: 'Status updated to shipped', userType: 'human' },
-            { id: 'ev-5', timestamp: '2024-03-16T14:35:00Z', type: 'tracking', message: 'Added tracking: FedEx (7890123456)', userType: 'human' }
+            { id: 'ev-5', timestamp: '2024-03-16T14:35:00Z', type: 'tracking', message: 'Added tracking: FedEx (7890123456)', userType: 'human' },
+            { id: 'ev-w', timestamp: '2024-03-17T10:00:00Z', type: 'weather_alert', message: 'Flagged for weather delay (Seattle blizzards)', userType: 'agent' }
         ]
     },
     {
@@ -84,9 +106,12 @@ const INITIAL_ORDERS: Order[] = [
         date: '2024-03-10',
         shippingAddress: { street: '123 Main St', city: 'San Francisco', zip: '94105' },
         notes: ['Left at front porch'],
+        eta: '2024-03-12',
+        proofOfDelivery: 'approved',
         events: [
             { id: 'ev-6', timestamp: '2024-03-10T11:00:00Z', type: 'creation', message: 'Order created', userType: 'human' },
-            { id: 'ev-7', timestamp: '2024-03-12T16:00:00Z', type: 'status_change', message: 'Status updated to delivered', userType: 'human' }
+            { id: 'ev-7', timestamp: '2024-03-12T16:00:00Z', type: 'status_change', message: 'Status updated to delivered', userType: 'human' },
+            { id: 'ev-pod', timestamp: '2024-03-12T16:30:00Z', type: 'pod_review', message: 'Proof of Delivery images approved', userType: 'agent' }
         ]
     },
     {
@@ -122,6 +147,7 @@ const INITIAL_ORDERS: Order[] = [
         total: 342.10,
         date: '2024-03-20',
         shippingAddress: { street: '456 Oak Ave', city: 'Seattle', zip: '98101' },
+        eta: '2024-03-25',
         events: [
             { id: 'ev-12', timestamp: '2024-03-20T10:00:00Z', type: 'creation', message: 'Order created', userType: 'human' }
         ]
@@ -302,6 +328,128 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         addLog(`Applied ${percentage}% discount to ${orderId}`, isAgent);
     }, [addLog, addOrderEvent]);
 
+    const bulkUpdateStatus = useCallback((currentStatus: Order['status'], newStatus: Order['status'], isAgent = false) => {
+        setOrders(prev => {
+            let updatedCount = 0;
+            const newOrders = prev.map(o => {
+                if (o.status === currentStatus) {
+                    updatedCount++;
+                    // Add event for each updated order
+                    const newEvent = {
+                        id: `ev-${Math.random().toString(36).substr(2, 9)}`,
+                        timestamp: new Date().toISOString(),
+                        type: 'status_change' as const,
+                        message: `Status bulk updated to ${newStatus}`,
+                        userType: isAgent ? 'agent' as const : 'human' as const
+                    };
+                    return { ...o, status: newStatus, events: [newEvent, ...(o.events || [])] };
+                }
+                return o;
+            });
+
+            if (updatedCount > 0) {
+                addLog(`Bulk updated ${updatedCount} orders from ${currentStatus} to ${newStatus}`, isAgent);
+            }
+            return newOrders;
+        });
+    }, [addLog]);
+
+    const updateETA = useCallback((orderId: string, eta: string, isAgent = false) => {
+        setOrders(prev => prev.map(o =>
+            o.id === orderId ? { ...o, eta } : o
+        ));
+        addOrderEvent(orderId, {
+            type: 'eta_update',
+            message: `Updated ETA to ${eta}`,
+            userType: isAgent ? 'agent' : 'human'
+        });
+        addLog(`Updated ETA for ${orderId} to ${eta}`, isAgent);
+    }, [addLog, addOrderEvent]);
+
+    const flagWeatherException = useCallback((orderId: string, isDelayed: boolean, isAgent = false) => {
+        setOrders(prev => prev.map(o =>
+            o.id === orderId ? { ...o, weatherFlag: isDelayed } : o
+        ));
+        addOrderEvent(orderId, {
+            type: 'weather_alert',
+            message: isDelayed ? `Flagged for Weather Exception` : `Weather Exception Cleared`,
+            userType: isAgent ? 'agent' : 'human'
+        });
+        addLog(`Set Weather Exception for ${orderId} to ${isDelayed}`, isAgent);
+    }, [addLog, addOrderEvent]);
+
+    const reviewProofOfDelivery = useCallback((orderId: string, reviewStatus: 'approved' | 'rejected', isAgent = false) => {
+        setOrders(prev => prev.map(o =>
+            o.id === orderId ? { ...o, proofOfDelivery: reviewStatus } : o
+        ));
+        addOrderEvent(orderId, {
+            type: 'pod_review',
+            message: `Proof of Delivery marked as ${reviewStatus}`,
+            userType: isAgent ? 'agent' : 'human'
+        });
+        addLog(`Reviewed Proof of Delivery for ${orderId}: ${reviewStatus}`, isAgent);
+    }, [addLog, addOrderEvent]);
+
+    const splitOrder = useCallback((originalOrderId: string, newOrderId: string, isAgent = false) => {
+        setOrders(prev => {
+            const original = prev.find(o => o.id === originalOrderId);
+            if (!original) return prev;
+
+            const splitCost = original.total / 2; // Simple split logic for demo
+
+            // Mutate original
+            const updatedOriginal = { ...original, total: splitCost };
+
+            // Create New
+            const newOrder: Order = {
+                ...original,
+                id: newOrderId,
+                total: splitCost,
+                status: 'pending',
+                carrier: undefined,
+                trackingNumber: undefined,
+                proofOfDelivery: 'pending',
+                events: [{
+                    id: `ev-${Math.random().toString(36).substr(2, 9)}`,
+                    timestamp: new Date().toISOString(),
+                    type: 'split',
+                    message: `Spawned from split of ${originalOrderId}`,
+                    userType: isAgent ? 'agent' : 'human'
+                }]
+            };
+
+            // Notify
+            addLog(`Split order ${originalOrderId} into ${newOrderId}`, isAgent);
+
+            return prev.map(o => o.id === originalOrderId ? {
+                ...updatedOriginal,
+                events: [{
+                    id: `ev-${Math.random().toString(36).substr(2, 9)}`,
+                    timestamp: new Date().toISOString(),
+                    type: 'split' as const,
+                    message: `Order split into dual-delivery (New ID: ${newOrderId})`,
+                    userType: isAgent ? 'agent' as const : 'human' as const
+                }, ...(updatedOriginal.events || [])]
+            } : o).concat(newOrder);
+        });
+    }, [addLog]);
+
+    const calculateMargins = useCallback((orderId: string, cogs: number, isAgent = false) => {
+        setOrders(prev => prev.map(o => {
+            if (o.id === orderId) {
+                const margin = ((o.total - cogs) / o.total) * 100;
+                addOrderEvent(orderId, {
+                    type: 'margin_calc',
+                    message: `COGS recorded as $${cogs}. Margin: ${margin.toFixed(1)}%`,
+                    userType: isAgent ? 'agent' : 'human'
+                });
+                return { ...o, cogs, margin };
+            }
+            return o;
+        }));
+        addLog(`Calculated margins for ${orderId}`, isAgent);
+    }, [addLog, addOrderEvent]);
+
     return (
         <OrderContext.Provider value={{
             orders,
@@ -316,7 +464,13 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             applyDiscount,
             createOrder,
             updateOrderStatus,
+            bulkUpdateStatus,
             addTrackingInfo,
+            updateETA,
+            flagWeatherException,
+            reviewProofOfDelivery,
+            splitOrder,
+            calculateMargins,
             log
         }}>
             {children}

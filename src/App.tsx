@@ -6,7 +6,7 @@ import {
   Sparkles, XCircle, Sun, Moon, ArrowLeft,
   ShieldCheck
 } from 'lucide-react'
-import { Toaster } from 'sonner'
+import { Toaster, toast } from 'sonner'
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import { WebMCPTools } from './components/WebMCPTools';
 import { Sidebar } from './components/Sidebar';
@@ -191,13 +191,59 @@ const CommandConsoleView = () => {
   )
 }
 
+import { useNavigate } from 'react-router-dom';
+
 const AppLayout = () => {
   const { searchQuery, setSearchQuery } = useOrders();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, setTheme } = useTheme();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Custom alerts for the UI
+  const [systemAlerts, setSystemAlerts] = useState<{ title: string, desc: string, time: string }[]>([
+    { title: 'New Node Active', desc: 'Apex Signal Branch #12 active.', time: '2m ago' },
+    { title: 'Dispatch Complete', desc: 'ORD-003 has reached its trajectory.', time: '1h ago' },
+  ]);
+
+  React.useEffect(() => {
+    const handleNavigate = (e: any) => {
+      if (e.detail?.path) {
+        navigate(e.detail.path);
+        toast.success(`Navigated to ${e.detail.path}`, { description: "Action performed by AI Agent" });
+      }
+    };
+
+    const handleSystemAlert = (e: any) => {
+      if (e.detail?.title && e.detail?.desc) {
+        setSystemAlerts(prev => [{
+          title: e.detail.title,
+          desc: e.detail.desc,
+          time: 'Just now'
+        }, ...prev]);
+        toast.info(e.detail.title, { description: e.detail.desc });
+      }
+    };
+
+    const handleSetTheme = (e: any) => {
+      if (e.detail?.theme) {
+        setTheme(e.detail.theme);
+        toast.success(`Theme set to ${e.detail.theme}`, { description: "Action performed by AI Agent" });
+      }
+    }
+
+    window.addEventListener('webmcp:navigate', handleNavigate as EventListener);
+    window.addEventListener('webmcp:system_alert', handleSystemAlert as EventListener);
+    window.addEventListener('webmcp:set_theme', handleSetTheme as EventListener);
+
+    return () => {
+      window.removeEventListener('webmcp:navigate', handleNavigate as EventListener);
+      window.removeEventListener('webmcp:system_alert', handleSystemAlert as EventListener);
+      window.removeEventListener('webmcp:set_theme', handleSetTheme as EventListener);
+    };
+  }, [navigate, setTheme]);
 
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -271,10 +317,7 @@ const AppLayout = () => {
                   <div className="absolute right-0 mt-4 w-80 bg-[var(--background)] p-6 rounded-2xl border border-[var(--glass-border)] shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300 z-50">
                     <h4 className="text-sm font-bold mb-4 uppercase tracking-widest text-indigo-400">Recent Alerts</h4>
                     <div className="space-y-4">
-                      {[
-                        { title: 'New Node Active', desc: 'Apex Signal Branch #12 active.', time: '2m ago' },
-                        { title: 'Dispatch Complete', desc: 'ORD-003 has reached its trajectory.', time: '1h ago' },
-                      ].map((n, i) => (
+                      {systemAlerts.map((n, i) => (
                         <div key={i} className="group/item cursor-pointer">
                           <p className="text-xs font-bold text-[var(--foreground)] group-hover/item:text-indigo-400 transition-colors">{n.title}</p>
                           <p className="text-[10px] text-[var(--muted-foreground)]">{n.desc}</p>
@@ -346,6 +389,7 @@ const AppLayout = () => {
 };
 
 function App() {
+
   return (
     <OrderProvider>
       <ChartProvider>
