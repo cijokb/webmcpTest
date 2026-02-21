@@ -1,0 +1,171 @@
+/* Input Resets */
+input,
+select,
+textarea,
+button {
+    font-family: inherit;
+    color: inherit;
+    border: none;
+    background: transparent;
+    outline: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--muted-foreground);
+    opacity: 1;
+}
+
+/* Arbitrary Variables Simulator */
+.bg-\[var\(--background\)\] {
+    background-color: var(--background);
+}
+
+.bg-\[var\(--glass-bg\)\] {
+    background-color: var(--glass-bg);
+}
+
+.bg-\[var\(--muted\)\] {
+    background-color: var(--muted);
+}
+
+.bg-\[var\(--muted\)\]\/50 {
+    background-color: color-mix(in srgb, var(--muted) 50%, transparent);
+}
+
+.bg-\[var\(--primary\)\]\/5 {
+    background-color: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+.hover\:bg-\[var\(--primary\)\]\/10:hover {
+    background-color: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.border-\[var\(--background\)\] {
+    border-color: var(--background);
+}
+
+.border-\[var\(--glass-border\)\] {
+    border-color: var(--glass-border);
+}
+
+.border-b-\[var\(--glass-border\)\] {
+    border-bottom-color: var(--glass-border);
+}
+
+.divide-\[var\(--glass-border\)\]> :not([hidden])~ :not([hidden]) {
+    border-color: var(--glass-border);
+}
+
+.text-\[var\(--foreground\)\] {
+    color: var(--foreground);
+    text-shadow: none;
+}
+
+.text-\[var\(--muted-foreground\)\] {
+    color: var(--muted-foreground);
+}
+
+.text-\[var\(--secondary\)\] {
+    color: var(--secondary);
+}
+
+/* Missing Hover/Focus States */
+.hover\:text-\[var\(--foreground\)\]:hover {
+    color: var(--foreground);
+}
+
+.hover\:text-\[var\(--muted-foreground\)\]:hover {
+    color: var(--muted-foreground);
+}
+
+.hover\:text-zinc-300:hover {
+    color: #d4d4d8;
+}
+
+.hover\:text-zinc-200:hover {
+    color: #e4e4e7;
+}
+
+.hover\:border-zinc-500:hover {
+    border-color: #71717a;
+}
+
+.hover\:bg-white\/5:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.focus-within\:border-indigo-500\/50:focus-within {
+    border-color: rgba(99, 102, 241, 0.5);
+}
+
+.focus\:border-indigo-500\/50:focus {
+    border-color: rgba(99, 102, 241, 0.5);
+}
+
+.focus\:border-rose-500\/50:focus {
+    border-color: rgba(244, 63, 94, 0.5);
+}
+
+.group-focus-within\/input\:text-indigo-400:focus-within {
+    color: #818cf8;
+}
+
+/* Active States */
+.active\:scale-90:active {
+    transform: scale(0.9);
+}
+
+.active\:scale-95:active {
+    transform: scale(0.95);
+}
+
+.active\:scale-\[0\.98\]:active {
+    transform: scale(0.98);
+}
+
+/* Typography */
+.text-\[10px\] {
+    font-size: 10px;
+    line-height: 14px;
+}
+
+.text-\[9px\] {
+    font-size: 9px;
+    line-height: 12px;
+}
+
+.text-\[8px\] {
+    font-size: 8px;
+    line-height: 10px;
+}
+
+.tracking-\[0\.2em\] {
+    letter-spacing: 0.2em;
+}
+
+.tracking-\[0\.25em\] {
+    letter-spacing: 0.25em;
+}
+
+/* Layout & Sizing */
+.min-h-\[100px\] {
+    min-height: 100px;
+}
+
+.max-h-\[500px\] {
+    max-height: 500px;
+}
+
+.p-\[1px\] {
+    padding: 1px;
+}
+
+/* Custom Shadows */
+.shadow-\[0_0_8px_rgba\(99\,102\,241\,0\.6\)\] {
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+}
+
+.shadow-\[inset_0_0_12px_rgba\(99\,102\,241\,0\.1\)\] {
+    box-shadow: inset 0 0 12px rgba(99, 102, 241, 0.1);
+}
