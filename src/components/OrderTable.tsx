@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { useOrders, type Order } from '../hooks/useOrders';
 import {
     Package, MapPin, Mail, Calendar,
-    ChevronRight, History, User, Terminal as TerminalIcon
+    ChevronRight, History, User, Terminal as TerminalIcon,
+    CloudHail, FileCheck
 } from 'lucide-react';
 
 export const OrderTable = () => {
@@ -88,12 +89,32 @@ export const OrderTable = () => {
                                             <Calendar size={14} />
                                             <span className="text-[10px]">{order.date}</span>
                                         </div>
+                                        {order.eta && (
+                                            <div className="flex items-center gap-2 text-indigo-400 mt-1">
+                                                <Calendar size={12} />
+                                                <span className="text-[9px] font-bold uppercase tracking-widest">ETA: {order.eta}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </td>
                                 <td className="px-8 py-6">
-                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusColor(order.status)}`}>
-                                        {order.status}
-                                    </span>
+                                    <div className="flex flex-wrap gap-2 items-center">
+                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusColor(order.status)}`}>
+                                            {order.status}
+                                        </span>
+                                        {order.weatherFlag && (
+                                            <span className="px-2 py-1 flex items-center gap-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                                                <CloudHail size={10} />
+                                                Alert
+                                            </span>
+                                        )}
+                                        {order.proofOfDelivery && order.proofOfDelivery !== 'pending' && (
+                                            <span className={`px-2 py-1 flex items-center gap-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${order.proofOfDelivery === 'approved' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border-rose-500/20'}`}>
+                                                <FileCheck size={10} />
+                                                PoD {order.proofOfDelivery}
+                                            </span>
+                                        )}
+                                    </div>
                                     {order.trackingNumber && (
                                         <div className="mt-2 flex flex-col gap-0.5">
                                             <p className="text-[9px] font-bold text-[var(--muted-foreground)] uppercase tracking-tighter">{order.carrier}:</p>
@@ -135,7 +156,7 @@ export const OrderTable = () => {
                         ))}
                     </tbody>
                 </table>
-            </div>
+            </div >
 
             {selectedOrder && (
                 <div className="glass-panel p-8 rounded-2xl border border-indigo-500/20 animate-in zoom-in-95 duration-300">
@@ -175,6 +196,6 @@ export const OrderTable = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </div >
     );
 };
