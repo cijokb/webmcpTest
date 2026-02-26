@@ -1,3 +1,4 @@
+import './polyfill';
 import '@mcp-b/global';
 import React from 'react'
 import ReactDOM from 'react-dom/client'

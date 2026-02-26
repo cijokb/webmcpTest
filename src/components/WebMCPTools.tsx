@@ -9,6 +9,7 @@ export const WebMCPTools = () => {
         updateShippingAddress,
         issueRefund,
         addOrderNote,
+        removeOrderNote,
         cancelOrder,
         applyDiscount,
         createOrder,
@@ -35,6 +36,7 @@ export const WebMCPTools = () => {
         update_shipping_address: updateShippingAddress,
         issue_refund: issueRefund,
         add_order_note: addOrderNote,
+        remove_order_note: removeOrderNote,
         cancel_order: cancelOrder,
         apply_discount: applyDiscount,
         create_order: createOrder,
@@ -58,7 +60,23 @@ export const WebMCPTools = () => {
         generate_customs_invoice: (orderId: string) => { return `COMMERCIAL INVOICE\n------------------\nOrder: ${orderId}\n` },
         update_eta: updateETA,
         calculate_order_margin: calculateMargins,
-        get_carrier_performance: () => { return { 'FedEx': '98% On-Time', 'UPS': '95% On-Time' } }
+        get_carrier_performance: () => { return { 'FedEx': '98% On-Time', 'UPS': '95% On-Time' } },
+        get_order_history: (orderId: string) => {
+            const order = orders.find(o => o.id === orderId);
+            if (!order) return { success: false, message: `Order ${orderId} not found` };
+            const tableHeader = '| Timestamp | Type | Message | Actor |\n| :--- | :--- | :--- | :--- |\n';
+            const tableRows = (order.events || []).map((ev: any) =>
+                `| ${new Date(ev.timestamp).toLocaleString()} | ${ev.type.toUpperCase()} | ${ev.message} | ${ev.userType.toUpperCase()} |`
+            ).join('\n');
+            return {
+                success: true,
+                orderId: order.id,
+                currentStatus: order.status,
+                tracking: order.trackingNumber ? `${order.carrier}: ${order.trackingNumber}` : 'No tracking',
+                history_table: tableHeader + tableRows,
+                raw_events: order.events
+            };
+        }
     };
 
     if (typeof window !== 'undefined') {
@@ -89,6 +107,8 @@ export const WebMCPTools = () => {
                         handler(args.orderId, args.reason, true);
                     } else if (name === 'add_order_note') {
                         handler(args.orderId, args.note, true);
+                    } else if (name === 'remove_order_note') {
+                        handler(args.orderId, args.noteIndex, true);
                     } else if (name === 'cancel_order') {
                         handler(args.orderId, args.reason, true);
                     } else if (name === 'update_chart_config') {
@@ -140,6 +160,10 @@ export const WebMCPTools = () => {
                         const perf = handler();
                         window.dispatchEvent(new CustomEvent('webmcp:log', { detail: { message: `Accessed Carrier Performance Metrics` } }));
                         return perf;
+                    } else if (name === 'get_order_history') {
+                        const result = handler(args.orderId);
+                        window.dispatchEvent(new CustomEvent('webmcp:log', { detail: { message: `Retrieved order history for ${args.orderId}` } }));
+                        return result;
                     } else {
                         console.warn(`Tool ${name} has no console mapping, calling with orderId/args.`);
                         handler(args.orderId, args, true);
@@ -200,6 +224,20 @@ export const WebMCPTools = () => {
         handler: async (input) => {
             addOrderNote(input.orderId as string, input.note as string, true);
             return { success: true, message: `Note added to ${input.orderId}` };
+        },
+    });
+
+    // Tool 4.5: Remove Order Note
+    useWebMCP({
+        name: 'remove_order_note',
+        description: 'Remove an internal note from an order by its index (0-based).',
+        inputSchema: {
+            orderId: z.string().describe('The unique ID of the order'),
+            noteIndex: z.number().describe('The 0-based index of the note to remove'),
+        },
+        handler: async (input) => {
+            removeOrderNote(input.orderId as string, input.noteIndex as number, true);
+            return { success: true, message: `Note removed from ${input.orderId}` };
         },
     });
 

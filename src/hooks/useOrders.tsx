@@ -24,7 +24,7 @@ export interface Order {
     events: {
         id: string;
         timestamp: string;
-        type: 'status_change' | 'note' | 'tracking' | 'refund' | 'discount' | 'creation' | 'eta_update' | 'weather_alert' | 'pod_review' | 'split' | 'margin_calc';
+        type: 'status_change' | 'note' | 'tracking' | 'refund' | 'discount' | 'creation' | 'eta_update' | 'weather_alert' | 'pod_review' | 'split' | 'margin_calc' | 'remove_note';
         message: string;
         userType: 'agent' | 'human';
     }[];
@@ -39,6 +39,7 @@ interface OrderContextType {
     updateShippingAddress: (orderId: string, address: Order['shippingAddress'], isAgent?: boolean) => void;
     issueRefund: (orderId: string, reason: string, isAgent?: boolean) => void;
     addOrderNote: (orderId: string, note: string, isAgent?: boolean) => void;
+    removeOrderNote: (orderId: string, noteIndex: number, isAgent?: boolean) => void;
     cancelOrder: (orderId: string, reason: string, isAgent?: boolean) => void;
     applyDiscount: (orderId: string, percentage: number, isAgent?: boolean) => void;
     createOrder: (order: Omit<Order, 'status' | 'date' | 'events'>, isAgent?: boolean) => void;
@@ -300,6 +301,26 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         addLog(`Added internal note to ${orderId}`, isAgent);
     }, [addLog, addOrderEvent]);
 
+    const removeOrderNote = useCallback((orderId: string, noteIndex: number, isAgent = false) => {
+        setOrders(prev => prev.map(o => {
+            if (o.id !== orderId || !o.notes) return o;
+            const newNotes = [...o.notes];
+            const removedNote = newNotes.splice(noteIndex, 1)[0];
+
+            // If note wasn't found, just return unmodified order
+            if (removedNote === undefined) return o;
+
+            addOrderEvent(orderId, {
+                type: 'remove_note',
+                message: `Removed note: ${removedNote}`,
+                userType: isAgent ? 'agent' : 'human'
+            });
+
+            return { ...o, notes: newNotes };
+        }));
+        addLog(`Removed internal note from ${orderId}`, isAgent);
+    }, [addLog, addOrderEvent]);
+
     const cancelOrder = useCallback((orderId: string, reason: string, isAgent = false) => {
         setOrders(prev => prev.map(o =>
             o.id === orderId ? { ...o, status: 'cancelled' as const } : o
@@ -460,6 +481,7 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             updateShippingAddress,
             issueRefund,
             addOrderNote,
+            removeOrderNote,
             cancelOrder,
             applyDiscount,
             createOrder,
